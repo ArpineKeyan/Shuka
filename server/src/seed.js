@@ -1,7 +1,7 @@
 // Fills an empty database with demo data: categories, 3 sellers, 42 products, 2 buyers.
 // Run: npm run seed   (only works on an empty database)
 import { migrate } from './migrate.js';
-import { client, db } from './db.js';
+import { db, tx } from './db.js';
 import { hashPassword } from './auth.js';
 import sharp from 'sharp';
 import { processImage, newImageKey, storeImage } from './images.js';
@@ -80,43 +80,35 @@ if (n > 0) {
 }
 
 const hash = await hashPassword(DEMO_PASSWORD);
-const tx = await client.transaction('write');
-try {
+await tx(async t => {
   for (const [name, slug] of CATEGORIES) {
-    await tx.execute({ sql: 'INSERT INTO categories (name, slug) VALUES (?, ?)', args: [name, slug] });
+    await t.run('INSERT INTO categories (name, slug) VALUES (?, ?)', [name, slug]);
   }
   const catId = {};
-  for (const r of (await tx.execute('SELECT id, slug FROM categories')).rows) catId[r.slug] = r.id;
+  for (const r of await t.all('SELECT id, slug FROM categories')) catId[r.slug] = r.id;
 
   const sellerIds = [];
   for (const s of SELLERS) {
-    const rs = await tx.execute({
-      sql: 'INSERT INTO users (email, password_hash, name, phone, store_name) VALUES (?, ?, ?, ?, ?)',
-      args: [s.email, hash, s.name, s.phone, s.store] });
-    sellerIds.push(Number(rs.lastInsertRowid));
+    const { lastId } = await t.run(
+      'INSERT INTO users (email, password_hash, name, phone, store_name) VALUES (?, ?, ?, ?, ?)',
+      [s.email, hash, s.name, s.phone, s.store]);
+    sellerIds.push(lastId);
   }
   for (const b of BUYERS) {
-    await tx.execute({
-      sql: 'INSERT INTO users (email, password_hash, name, phone) VALUES (?, ?, ?, ?)',
-      args: [b.email, hash, b.name, b.phone] });
+    await t.run('INSERT INTO users (email, password_hash, name, phone) VALUES (?, ?, ?, ?)',
+      [b.email, hash, b.name, b.phone]);
   }
 
   // Spread creation times over the last 42 hours so "newest" has a clear order.
   const now = Date.now();
   for (const [i, [seller, cat, title, price, stock, desc]] of PRODUCTS.entries()) {
     const at = new Date(now - (PRODUCTS.length - i) * 3600_000).toISOString();
-    await tx.execute({
-      sql: `INSERT INTO products (seller_id, category_id, title, description, price_amd, stock, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      args: [sellerIds[seller], catId[cat], title, desc, price, stock, at, at] });
+    await t.run(
+      `INSERT INTO products (seller_id, category_id, title, description, price_amd, stock, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [sellerIds[seller], catId[cat], title, desc, price, stock, at, at]);
   }
-  await tx.commit();
-} catch (err) {
-  await tx.rollback();
-  throw err;
-} finally {
-  tx.close();
-}
+});
 
 // Placeholder photos: a colored card with the product title, made with sharp (no downloads).
 const COLORS = {

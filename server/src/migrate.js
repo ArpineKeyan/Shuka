@@ -2,18 +2,18 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { client, db } from './db.js';
+import { db } from './db.js';
 
 const dir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'migrations');
 
 export async function migrate() {
-  await client.execute(`CREATE TABLE IF NOT EXISTS _migrations (
+  await db.exec(`CREATE TABLE IF NOT EXISTS _migrations (
     name TEXT PRIMARY KEY, applied_at TEXT NOT NULL) STRICT`);
   const done = new Set((await db.all('SELECT name FROM _migrations')).map(r => r.name));
   const files = fs.readdirSync(dir).filter(f => /^\d+_.*\.sql$/.test(f)).sort();
   for (const f of files) {
     if (done.has(f)) continue;
-    await client.executeMultiple(fs.readFileSync(path.join(dir, f), 'utf8'));
+    await db.exec(fs.readFileSync(path.join(dir, f), 'utf8'));
     await db.run('INSERT INTO _migrations VALUES (?, ?)', [f, new Date().toISOString()]);
     console.log('applied', f);
   }

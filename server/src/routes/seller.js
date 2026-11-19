@@ -8,6 +8,7 @@ import {
   activateSeller, createProduct, updateProduct, listSellerProducts, ownProduct,
   freePositions, addImageRows, deleteImageRow, setMainImage, sellerOverview,
 } from '../seller.js';
+import { listSellerOrders, getSellerOrder, sellerMove } from '../lifecycle.js';
 
 export const sellerRouter = Router();
 
@@ -106,4 +107,19 @@ sellerRouter.post('/seller/products/:id/images/:imageId/main', requireSeller, as
   await ownProduct(req.user.id, id);
   await setMainImage(id, imageId);
   res.json({ product: await getProduct(id, req.user) });
+});
+
+// Seller orders (own orders only)
+sellerRouter.get('/seller/orders', requireSeller, async (req, res) => {
+  res.json(await listSellerOrders(req.user, req.query.status || null));
+});
+
+sellerRouter.get('/seller/orders/:id', requireSeller, async (req, res) => {
+  res.json({ order: await getSellerOrder(req.user, idParam(req.params.id, 'Order')) });
+});
+
+sellerRouter.post('/seller/orders/:id/status', requireSeller, async (req, res) => {
+  const id = idParam(req.params.id, 'Order');
+  await sellerMove(req.user, id, req.body?.to);
+  res.json({ order: await getSellerOrder(req.user, id) });
 });
