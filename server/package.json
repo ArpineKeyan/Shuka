@@ -1,0 +1,16 @@
+{
+  "name": "shuka-server",
+  "type": "module",
+  "private": true,
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "migrate": "node --env-file-if-exists=.env src/migrate.js",
+    "dev": "node --env-file-if-exists=.env --watch src/index.js",
+    "start": "node src/migrate.js && node src/index.js"
+  },
+  "dependencies": {
+    "@libsql/client": "^0.15.0",
+    "cookie-parser": "^1.4.7",
+    "express": "^5.1.0"
+  }
+}
