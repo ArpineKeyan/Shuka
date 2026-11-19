@@ -8,6 +8,9 @@ import { catalogRouter } from './routes/catalog.js';
 import { sellerRouter } from './routes/seller.js';
 import { ordersRouter } from './routes/orders.js';
 import { UPLOADS_DIR } from './images.js';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 await migrate();
 
@@ -28,6 +31,18 @@ api.use('/uploads', express.static(UPLOADS_DIR, { maxAge: '7d', fallthrough: fal
 api.use((_req, _res) => { throw notFound('No such endpoint.'); });
 
 app.use('/api', api);
+
+// The built website (client/dist), if it exists. Any other path gets index.html,
+// so links like /p/12 work when opened directly.
+const dist = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../client/dist');
+if (fs.existsSync(path.join(dist, 'index.html'))) {
+  app.use(express.static(dist, { index: false, maxAge: '1h' }));
+  app.use((req, res, next) => {
+    if (req.method !== 'GET' || req.path.startsWith('/api')) return next();
+    res.sendFile(path.join(dist, 'index.html'));
+  });
+}
+
 app.use(errorHandler);
 
 const port = Number(process.env.PORT) || 3000;
