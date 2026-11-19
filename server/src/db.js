@@ -14,6 +14,7 @@ if (!url) {
 
 export const client = createClient({ url, authToken: process.env.DATABASE_AUTH_TOKEN });
 export const isLocal = !remoteUrl;
+export const DATA_DIR = path.resolve(process.env.DATA_DIR || 'data');
 
 if (isLocal) {
   await client.execute('PRAGMA journal_mode = WAL');   // readers don't block the writer
@@ -35,3 +36,27 @@ export const db = {
     return { changes: rs.rowsAffected, lastId: rs.lastInsertRowid == null ? null : Number(rs.lastInsertRowid) };
   },
 };
+
+// Runs fn inside one write transaction (BEGIN IMMEDIATE). If fn throws, everything is rolled back.
+// Keep it short: no file uploads or network calls inside.
+export async function tx(fn) {
+  const t = await client.transaction('write');
+  const h = {
+    async all(sql, args = []) { return plain(await t.execute({ sql, args })); },
+    async get(sql, args = []) { return (await h.all(sql, args))[0] ?? null; },
+    async run(sql, args = []) {
+      const rs = await t.execute({ sql, args });
+      return { changes: rs.rowsAffected, lastId: rs.lastInsertRowid == null ? null : Number(rs.lastInsertRowid) };
+    },
+  };
+  try {
+    const result = await fn(h);
+    await t.commit();
+    return result;
+  } catch (err) {
+    await t.rollback().catch(() => {});
+    throw err;
+  } finally {
+    t.close();
+  }
+}

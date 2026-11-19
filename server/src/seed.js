@@ -1,9 +1,10 @@
 // Fills an empty database with demo data: categories, 3 sellers, 42 products, 2 buyers.
 // Run: npm run seed   (only works on an empty database)
-// Photos are added in step 4.
 import { migrate } from './migrate.js';
 import { client, db } from './db.js';
 import { hashPassword } from './auth.js';
+import sharp from 'sharp';
+import { processImage, newImageKey, storeImage } from './images.js';
 
 const DEMO_PASSWORD = 'shuka-demo';
 
@@ -115,6 +116,45 @@ try {
   throw err;
 } finally {
   tx.close();
+}
+
+// Placeholder photos: a colored card with the product title, made with sharp (no downloads).
+const COLORS = {
+  'electronics': ['#1d3557', '#457b9d'], 'home-kitchen': ['#8d5524', '#c68642'], 'clothing': ['#2a9d8f', '#8ab17d'],
+  'books': ['#6d597a', '#b56576'], 'food-drinks': ['#e76f51', '#f4a261'], 'beauty': ['#d6336c', '#f783ac'],
+  'sports': ['#2b9348', '#80b918'], 'handmade': ['#9c6644', '#ddb892'],
+};
+const esc = t => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+function wrap(text, max = 16) {
+  const lines = []; let line = '';
+  for (const w of text.split(' ')) {
+    if ((line + ' ' + w).trim().length > max && line) { lines.push(line); line = w; } else line = (line + ' ' + w).trim();
+  }
+  return [...lines, line].slice(0, 3);
+}
+function placeholderSvg(title, slug, variant) {
+  const [a, b] = COLORS[slug];
+  const lines = wrap(title);
+  const y0 = 600 - (lines.length - 1) * 45;
+  return Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1200">
+    <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="${variant ? b : a}"/><stop offset="1" stop-color="${variant ? a : b}"/></linearGradient></defs>
+    <rect width="1200" height="1200" fill="url(#g)"/>
+    <circle cx="${variant ? 950 : 250}" cy="${variant ? 250 : 950}" r="180" fill="#ffffff" opacity="0.12"/>
+    ${lines.map((l, i) => `<text x="600" y="${y0 + i * 90}" font-family="Helvetica, Arial, sans-serif" font-size="80"
+      font-weight="700" fill="#ffffff" text-anchor="middle">${esc(l)}</text>`).join('')}
+    <text x="600" y="1100" font-family="Helvetica, Arial, sans-serif" font-size="40" fill="#ffffff" opacity="0.8"
+      text-anchor="middle">Shuka demo photo ${variant + 1}</text></svg>`);
+}
+
+const products = await db.all('SELECT p.id, p.title, c.slug FROM products p JOIN categories c ON c.id = p.category_id ORDER BY p.id');
+for (const [i, p] of products.entries()) {
+  const count = i % 7 === 0 ? 3 : 1;   // a few products get 3 photos, to show the gallery
+  for (let pos = 0; pos < count; pos++) {
+    const key = newImageKey(p.id);
+    await storeImage(key, await processImage(await sharp(placeholderSvg(p.title, p.slug, pos)).png().toBuffer(), 'seed.png'));
+    await db.run('INSERT INTO product_images (product_id, file_path, position) VALUES (?, ?, ?)', [p.id, key, pos]);
+  }
 }
 
 console.log(`Seeded ${CATEGORIES.length} categories, ${SELLERS.length} sellers, ${BUYERS.length} buyers, ${PRODUCTS.length} products.`);

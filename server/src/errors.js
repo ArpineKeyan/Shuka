@@ -20,6 +20,9 @@ export function errorHandler(err, req, res, _next) {
   if (err.type === 'entity.parse.failed') {
     return res.status(400).json({ error: { code: 'invalid_input', message: 'Body is not valid JSON.' } });
   }
+  if (err.status === 404 || err.statusCode === 404) {   // e.g. a missing photo file
+    return res.status(404).json({ error: { code: 'not_found', message: 'Not found.' } });
+  }
   console.error(err);
   res.status(500).json({ error: { code: 'server_error', message: 'Something went wrong.' } });
 }
