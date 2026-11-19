@@ -6,10 +6,10 @@
 
 # Send API calls to the backend on Render. The browser only ever sees the Netlify address,
 # so the login cookie works on every browser, including Safari on iPhone.
-# Replace YOUR-RENDER-APP with your Render service name at deploy time.
+# Replace shuka-api-iho6 with your Render service name at deploy time.
 [[redirects]]
   from = "/api/*"
-  to = "https://YOUR-RENDER-APP.onrender.com/api/:splat"
+  to = "https://shuka-api-iho6.onrender.com/api/:splat"
   status = 200
   force = true
 
