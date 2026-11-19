@@ -23,6 +23,19 @@ Demo accounts (password `shuka-demo` for all):
 
 To start over with fresh demo data: stop the app, delete `server/data/`, run `npm run dev` again.
 
+## Break-it tests
+
+With the app running (`npm run dev`), open a second terminal:
+
+```
+cd server
+npm run break-it
+```
+
+It runs every break-it test from the brief (last units, double click, price change, old orders, other people's data,
+moves that aren't allowed, cancel returns stock, foreign keys, bad uploads) and prints PASS or FAIL for each.
+Against the live site: `BASE_URL=https://your-site.netlify.app npm run break-it`.
+
 ## How it's built
 
 - `client/`: React + Vite website
