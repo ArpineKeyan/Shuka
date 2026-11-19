@@ -2,9 +2,12 @@
   "name": "shuka-server",
   "type": "module",
   "private": true,
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "migrate": "node --env-file-if-exists=.env src/migrate.js",
+    "seed": "node --env-file-if-exists=.env src/seed.js",
     "dev": "node --env-file-if-exists=.env --watch src/index.js",
     "start": "node src/migrate.js && node src/index.js"
   },

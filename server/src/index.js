@@ -4,6 +4,7 @@ import { migrate } from './migrate.js';
 import { loadUser } from './auth.js';
 import { errorHandler, notFound } from './errors.js';
 import { authRouter } from './routes/auth.js';
+import { catalogRouter } from './routes/catalog.js';
 
 await migrate();
 
@@ -16,6 +17,7 @@ app.use(loadUser);
 const api = express.Router();
 api.get('/health', (_req, res) => res.json({ ok: true }));
 api.use(authRouter);
+api.use(catalogRouter);
 api.use((_req, _res) => { throw notFound('No such endpoint.'); });
 
 app.use('/api', api);
